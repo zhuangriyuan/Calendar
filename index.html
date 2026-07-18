@@ -220,17 +220,26 @@
   #cal-app .weather-save-btn { padding: 0 16px; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 700; font-size: 13px; flex-shrink: 0; }
   #cal-app .weather-save-btn:active { opacity: 0.85; }
 
-  /* Holiday chip (Japan public holidays) */
-  #cal-app .chip-holiday { background: #C9972B; color: #fff; }
-  #cal-app[data-theme="dark"] .chip-holiday { background: #D9A63E; color: #1a1408; }
+  /* Holiday chips: Japan = gold, China = blue (red was already used by today-marker/delete/upcoming) */
+  #cal-app .chip-holiday-jp { background: #C9972B; color: #fff; }
+  #cal-app[data-theme="dark"] .chip-holiday-jp { background: #D9A63E; color: #1a1408; }
+  #cal-app .chip-holiday-cn { background: #3B6FA0; color: #fff; }
+  #cal-app[data-theme="dark"] .chip-holiday-cn { background: #6FA8D9; color: #0d1f2e; }
+  #cal-app .cell.selected .chip-holiday-jp { background: #C9972B; color: #fff; }
+  #cal-app[data-theme="dark"] .cell.selected .chip-holiday-jp { background: #D9A63E; color: #1a1408; }
+  #cal-app .cell.selected .chip-holiday-cn { background: #3B6FA0; color: #fff; }
+  #cal-app[data-theme="dark"] .cell.selected .chip-holiday-cn { background: #6FA8D9; color: #0d1f2e; }
   #cal-app .cell-weather { position: absolute; top: 4px; right: 5px; font-size: 9.5px; color: var(--text-soft); text-align: right; line-height: 1.2; }
   #cal-app .cell.selected .cell-weather { color: var(--accent-strong); }
 
   #cal-app .holiday-badge {
     display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px;
-    background: #C9972B; color: #fff; font-size: 12px; font-weight: 600; margin-bottom: 10px;
+    color: #fff; font-size: 12px; font-weight: 600; margin-bottom: 10px; margin-right: 6px;
   }
-  #cal-app[data-theme="dark"] .holiday-badge { background: #D9A63E; color: #1a1408; }
+  #cal-app .holiday-badge-jp { background: #C9972B; }
+  #cal-app[data-theme="dark"] .holiday-badge-jp { background: #D9A63E; color: #1a1408; }
+  #cal-app .holiday-badge-cn { background: #3B6FA0; }
+  #cal-app[data-theme="dark"] .holiday-badge-cn { background: #6FA8D9; color: #0d1f2e; }
 
   /* Mobile bottom sheet */
   #cal-app .sheet-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 50; }
@@ -439,19 +448,19 @@
   async function loadHolidaysForYear(year) {
     if (holidaysCache[year]) return;
     holidaysCache[year] = {}; // mark as "loading/loaded" to avoid duplicate fetches
-    const merge = (date, label) => {
+    const merge = (date, label, country) => {
       if (!holidaysCache[year][date]) holidaysCache[year][date] = [];
-      holidaysCache[year][date].push(label);
+      holidaysCache[year][date].push({ label, country });
     };
     await Promise.allSettled([
       fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/JP`)
         .then(res => res.ok ? res.json() : [])
-        .then(list => { list.forEach(h => merge(h.date, `🇯🇵 ${h.localName || h.name}`)); }),
+        .then(list => { list.forEach(h => merge(h.date, `🇯🇵 ${h.localName || h.name}`, 'jp')); }),
       fetch(`https://cdn.jsdelivr.net/gh/NateScarlet/holiday-cn@master/${year}.json`)
         .then(res => res.ok ? res.json() : { days: [] })
         .then(obj => {
           (obj.days || []).forEach(h => {
-            if (h.isOffDay) merge(h.date, `🇨🇳 ${h.name}`);
+            if (h.isOffDay) merge(h.date, `🇨🇳 ${h.name}`, 'cn');
           });
         }),
     ]);
@@ -751,16 +760,18 @@
         cell.appendChild(wxEl);
       }
 
-      const holidayNames = holidayNamesFor(key);
+      const holidays = holidayNamesFor(key);
       const dayEvents = events[key] || [];
-      if (dayEvents.length > 0 || holidayNames) {
+      if (dayEvents.length > 0 || holidays) {
         const chips = document.createElement('div');
         chips.className = 'chips';
-        if (holidayNames) {
-          const hChip = document.createElement('div');
-          hChip.className = 'chip chip-holiday';
-          hChip.textContent = holidayNames.join(' · ');
-          chips.appendChild(hChip);
+        if (holidays) {
+          holidays.forEach(h => {
+            const hChip = document.createElement('div');
+            hChip.className = `chip chip-holiday chip-holiday-${h.country}`;
+            hChip.textContent = h.label;
+            chips.appendChild(hChip);
+          });
         }
         const sorted = dayEvents.slice().sort((a, b) => {
           const ta = a.allDay ? '00:00' : (a.time || '99:99');
@@ -839,9 +850,9 @@
       const tb = b.allDay ? '00:00' : (b.time || '99:99');
       return ta.localeCompare(tb);
     });
-    const holidayNames = holidayNamesFor(key);
-    const holidayHtml = holidayNames
-      ? holidayNames.map(n => `<div class="holiday-badge">${escapeHtml(n)}</div>`).join('')
+    const holidays = holidayNamesFor(key);
+    const holidayHtml = holidays
+      ? holidays.map(h => `<div class="holiday-badge holiday-badge-${h.country}">${escapeHtml(h.label)}</div>`).join('')
       : '';
     if (list.length === 0) {
       el.innerHTML = holidayHtml + `<div class="empty-state">这一天还没有安排</div>`;
