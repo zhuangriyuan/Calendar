@@ -80,6 +80,9 @@
     border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
     background: var(--surface); width: 100%; outline: none;
   }
+  #cal-app textarea {
+    resize: none; max-height: 140px; overflow-y: auto;
+  }
   #cal-app input:focus, #cal-app textarea:focus, #cal-app select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
   #cal-app .shell { max-width: 1080px; margin: 0 auto; padding: 20px; }
@@ -132,11 +135,12 @@
   #cal-app .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 6px; }
   #cal-app .weekdays div { text-align: center; font-size: 12px; color: var(--text-soft); padding: 6px 0; font-weight: 600; }
   #cal-app .weekdays div.weekend { color: var(--seal); }
-  #cal-app .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  #cal-app .grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
   #cal-app .cell {
-    position: relative; min-height: 94px; border-radius: 10px; display: flex; flex-direction: column;
+    position: relative; min-height: 94px; min-width: 0; border-radius: 10px; display: flex; flex-direction: column;
     align-items: stretch; padding: 6px 4px; gap: 3px; font-size: 13px; color: var(--text);
     background: transparent; transition: background 0.15s; border: 1px solid transparent;
+    overflow: hidden;
   }
   #cal-app .cell:not(.empty):hover { background: var(--surface-2); border-color: var(--border); }
   #cal-app .cell.empty { visibility: hidden; }
@@ -144,15 +148,15 @@
   #cal-app .cell.selected { background: var(--accent-soft); border-color: var(--accent); }
   #cal-app .daynum {
     align-self: flex-start; font-size: 13px; font-weight: 600; width: 24px; height: 24px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
   #cal-app .cell.today .daynum { background: var(--seal); color: #fff; }
   #cal-app .cell.selected:not(.today) .daynum { color: var(--accent-strong); }
-  #cal-app .chips { display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+  #cal-app .chips { display: flex; flex-direction: column; gap: 2px; overflow: hidden; min-width: 0; }
   #cal-app .chip {
     font-size: 10.5px; line-height: 1.5; padding: 2px 6px; border-radius: 5px; background: var(--accent);
     color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;
-    font-weight: 600;
+    font-weight: 600; min-width: 0; max-width: 100%; box-sizing: border-box;
   }
   #cal-app .cell.selected .chip { background: var(--accent-strong); }
   #cal-app .chip-more { font-size: 10px; color: var(--text-soft); padding-left: 5px; text-align: left; }
