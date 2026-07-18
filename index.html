@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>家庭日历</title>
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="家庭日历" />
+<meta name="theme-color" content="#2F6B57" />
+<style>
+  html, body { margin: 0; padding: 0; }
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+
+  #cal-app, #cal-app * { box-sizing: border-box; }
+  #cal-app {
+    --bg: #F3F0E8;
+    --surface: #FFFFFF;
+    --surface-2: #FBF9F4;
+    --border: #E1DACB;
+    --text: #26241E;
+    --text-soft: #8B8474;
+    --accent: #2F6B57;
+    --accent-strong: #235244;
+    --accent-soft: #E2EEE8;
+    --seal: #C0442E;
+    --seal-soft: #F7E1DB;
+    --shadow: 0 2px 10px rgba(60, 50, 30, 0.06);
+    --radius: 16px;
+    font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    min-height: 100vh;
+    width: 100%;
+    -webkit-font-smoothing: antialiased;
+    transition: background 0.2s, color 0.2s;
+  }
+  #cal-app[data-theme="dark"] {
+    --bg: #171613;
+    --surface: #211F1B;
+    --surface-2: #262420;
+    --border: #38352C;
+    --text: #EDE8DB;
+    --text-soft: #99917E;
+    --accent: #4FA087;
+    --accent-strong: #6BC1A6;
+    --accent-soft: #253C34;
+    --seal: #E37B5F;
+    --seal-soft: #3A2823;
+    --shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+  }
+  #cal-app .display { font-family: 'Noto Serif SC', serif; }
+
+  #cal-app button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  #cal-app input, #cal-app textarea, #cal-app select {
+    font-family: inherit; font-size: 15px; color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
+    background: var(--surface); width: 100%; outline: none;
+  }
+  #cal-app input:focus, #cal-app textarea:focus, #cal-app select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  #cal-app .shell { max-width: 1080px; margin: 0 auto; padding: 20px; }
+
+  /* Login screen */
+  #cal-app .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  #cal-app .login-card { width: 100%; max-width: 360px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px 24px; box-shadow: var(--shadow); text-align: center; }
+  #cal-app .login-seal { width: 48px; height: 48px; border-radius: 12px; background: var(--seal); color: #fff; display: flex; align-items: center; justify-content: center; font-family: 'Noto Serif SC', serif; font-weight: 700; font-size: 20px; margin: 0 auto 14px; }
+  #cal-app .login-title { font-size: 19px; font-weight: 700; margin-bottom: 6px; font-family: 'Noto Serif SC', serif; }
+  #cal-app .login-desc { font-size: 13px; color: var(--text-soft); margin-bottom: 18px; line-height: 1.6; }
+  #cal-app .login-card .form-row { text-align: left; margin-bottom: 12px; }
+  #cal-app .login-error { color: var(--seal); font-size: 12px; margin-top: 10px; }
+  #cal-app .login-back { font-size: 12px; color: var(--text-soft); margin-top: 14px; text-decoration: underline; }
+
+  /* Header */
+  #cal-app .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+  #cal-app .brand { display: flex; align-items: center; gap: 10px; }
+  #cal-app .brand-seal {
+    width: 36px; height: 36px; border-radius: 10px; background: var(--seal); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-family: 'Noto Serif SC', serif;
+    font-weight: 700; font-size: 16px; flex-shrink: 0; box-shadow: var(--shadow);
+  }
+  #cal-app .brand-title { font-size: 21px; font-weight: 700; letter-spacing: 0.5px; }
+  #cal-app .nav-controls { display: flex; align-items: center; gap: 8px; }
+  #cal-app .nav-btn {
+    width: 36px; height: 36px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--text);
+  }
+  #cal-app .nav-btn:active { background: var(--accent-soft); }
+  #cal-app .month-label { font-size: 17px; font-weight: 700; min-width: 108px; text-align: center; font-family: 'Noto Serif SC', serif; }
+  #cal-app .today-btn {
+    padding: 8px 14px; border-radius: 20px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 500;
+  }
+  #cal-app .theme-btn {
+    width: 36px; height: 36px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+  }
+  #cal-app .signout-btn { font-size: 12px; color: var(--text-soft); text-decoration: underline; }
+
+  /* Layout */
+  #cal-app .layout { display: flex; gap: 20px; align-items: flex-start; }
+  #cal-app .cal-col { flex: 1.3; min-width: 0; }
+  #cal-app .side-col { flex: 1; min-width: 320px; }
+
+  /* Calendar grid */
+  #cal-app .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; box-shadow: var(--shadow);
+  }
+  #cal-app .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 6px; }
+  #cal-app .weekdays div { text-align: center; font-size: 12px; color: var(--text-soft); padding: 6px 0; font-weight: 600; }
+  #cal-app .weekdays div.weekend { color: var(--seal); }
+  #cal-app .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  #cal-app .cell {
+    position: relative; min-height: 88px; border-radius: 10px; display: flex; flex-direction: column;
+    align-items: stretch; padding: 6px 4px; gap: 3px; font-size: 13px; color: var(--text);
+    background: transparent; transition: background 0.15s; border: 1px solid transparent;
+  }
+  #cal-app .cell:not(.empty):hover { background: var(--surface-2); border-color: var(--border); }
+  #cal-app .cell.empty { visibility: hidden; }
+  #cal-app .cell.other-month { color: var(--text-soft); opacity: 0.45; }
+  #cal-app .cell.selected { background: var(--accent-soft); border-color: var(--accent); }
+  #cal-app .daynum {
+    align-self: flex-start; font-size: 13px; font-weight: 600; width: 24px; height: 24px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #cal-app .cell.today .daynum { background: var(--seal); color: #fff; }
+  #cal-app .cell.selected:not(.today) .daynum { color: var(--accent-strong); }
+  #cal-app .chips { display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+  #cal-app .chip {
+    font-size: 10.5px; line-height: 1.5; padding: 1px 5px; border-radius: 5px; background: var(--accent-soft);
+    color: var(--accent-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;
+    font-weight: 500;
+  }
+  #cal-app .cell.selected .chip { background: var(--surface); }
+  #cal-app .chip-more { font-size: 10px; color: var(--text-soft); padding-left: 5px; text-align: left; }
+
+  /* Sidebar */
+  #cal-app .side-col .card { margin-bottom: 16px; }
+  #cal-app .sel-date-label { font-size: 16px; font-weight: 700; margin-bottom: 12px; font-family: 'Noto Serif SC', serif; }
+  #cal-app .event-item {
+    display: flex; gap: 10px; align-items: flex-start; padding: 10px 8px; border-radius: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  #cal-app .event-item:last-child { border-bottom: none; }
+  #cal-app .event-time { font-size: 12px; color: var(--text-soft); min-width: 42px; padding-top: 2px; }
+  #cal-app .event-body { flex: 1; min-width: 0; }
+  #cal-app .event-title { font-size: 14px; font-weight: 500; word-break: break-word; }
+  #cal-app .event-note { font-size: 12px; color: var(--text-soft); margin-top: 2px; word-break: break-word; }
+  #cal-app .event-actions { display: flex; gap: 6px; }
+  #cal-app .icon-btn { width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--text-soft); font-size: 14px; }
+  #cal-app .icon-btn:hover { background: var(--accent-soft); color: var(--seal); }
+  #cal-app .empty-state { color: var(--text-soft); font-size: 13px; padding: 12px 4px; }
+
+  #cal-app .form-row { margin-bottom: 10px; }
+  #cal-app .form-row label { display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 5px; }
+  #cal-app .form-inline { display: flex; gap: 8px; }
+  #cal-app .save-btn {
+    width: 100%; padding: 11px; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 700; font-size: 14px; margin-top: 4px;
+  }
+  #cal-app .save-btn:active { opacity: 0.85; }
+
+  #cal-app .upcoming-row { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  #cal-app .upcoming-row:last-child { border-bottom: none; }
+  #cal-app .upcoming-date { font-size: 12px; color: var(--seal); font-weight: 700; min-width: 56px; }
+  #cal-app .upcoming-title { font-size: 13px; }
+
+  #cal-app .sync-note { font-size: 11px; color: var(--text-soft); text-align: center; margin-top: 14px; line-height: 1.6; }
+
+  /* Mobile bottom sheet */
+  #cal-app .sheet-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 50; }
+  #cal-app .sheet-overlay.open { display: block; }
+  #cal-app .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 20px 20px 0 0;
+    max-height: 82vh; overflow-y: auto; padding: 18px; transform: translateY(100%); transition: transform 0.25s ease;
+    z-index: 51;
+  }
+  #cal-app .sheet.open { transform: translateY(0); }
+  #cal-app .sheet-handle { width: 40px; height: 4px; background: var(--border); border-radius: 4px; margin: 0 auto 14px; }
+
+  #cal-app .toast {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: var(--text); color: #fff;
+    padding: 10px 18px; border-radius: 10px; font-size: 13px; z-index: 100; opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  #cal-app .toast.show { opacity: 1; }
+
+  #cal-app .mobile-only { display: none; }
+  #cal-app .desktop-only { display: block; }
+  #cal-app .hidden { display: none !important; }
+
+  @media (max-width: 760px) {
+    #cal-app .shell { padding: 14px; }
+    #cal-app .layout { display: block; }
+    #cal-app .side-col { min-width: 0; }
+    #cal-app .side-col.desktop-panel { display: none; }
+    #cal-app .mobile-only { display: block; }
+    #cal-app .desktop-only { display: none; }
+    #cal-app .brand-title { font-size: 17px; }
+    #cal-app .cell { min-height: 62px; font-size: 12px; padding: 4px 3px; }
+    #cal-app .daynum { width: 20px; height: 20px; font-size: 12px; }
+    #cal-app .chip { font-size: 9px; padding: 1px 4px; }
+    #cal-app .card { padding: 12px; }
+  }
+</style>
+</head>
+<body>
+<div id="cal-app">
+
+  <!-- Login screen -->
+  <div class="login-wrap" id="loginScreen">
+    <div class="login-card">
+      <div class="login-seal display">历</div>
+      <div class="login-title display" id="loginTitle">邮箱登录</div>
+      <div class="login-desc" id="loginDesc">输入邮箱，我们会发一个验证码过去，用验证码登录即可。</div>
+
+      <div id="emailStep">
+        <div class="form-row">
+          <input type="email" id="loginEmailInput" placeholder="输入邮箱" required />
+        </div>
+        <button class="save-btn" id="sendCodeBtn">发送验证码</button>
+      </div>
+
+      <div id="codeStep" class="hidden">
+        <div class="form-row">
+          <input type="text" id="loginCodeInput" placeholder="输入收到的验证码" required />
+        </div>
+        <button class="save-btn" id="verifyCodeBtn">登录</button>
+        <div class="login-back" id="backToEmailBtn">换一个邮箱</div>
+      </div>
+
+      <div class="login-error hidden" id="loginError"></div>
+    </div>
+  </div>
+
+  <!-- Main app -->
+  <div class="shell hidden" id="mainApp">
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-seal display">历</div>
+        <div class="brand-title display">家庭日历</div>
+      </div>
+      <div class="nav-controls">
+        <button class="nav-btn" id="prevBtn">‹</button>
+        <div class="month-label" id="monthLabel"></div>
+        <button class="nav-btn" id="nextBtn">›</button>
+        <button class="today-btn" id="todayBtn">今天</button>
+        <button class="theme-btn" id="themeBtn" title="切换深色/浅色">🌙</button>
+      </div>
+    </div>
+
+    <div class="layout">
+      <div class="cal-col">
+        <div class="card">
+          <div class="weekdays">
+            <div>一</div><div>二</div><div>三</div><div>四</div><div>五</div>
+            <div class="weekend">六</div><div class="weekend">日</div>
+          </div>
+          <div class="grid" id="grid"></div>
+        </div>
+
+        <div class="card mobile-only" style="margin-top:16px;">
+          <div class="sel-date-label display">近期日程</div>
+          <div id="upcomingListMobile"></div>
+        </div>
+
+        <div class="sync-note">
+          已登录：<span id="userEmailLabel"></span> · <button class="signout-btn" id="signOutBtn">退出登录</button>
+        </div>
+      </div>
+
+      <div class="side-col desktop-panel desktop-only">
+        <div class="card">
+          <div class="sel-date-label display" id="selDateLabel"></div>
+          <div id="eventList"></div>
+        </div>
+        <div class="card">
+          <div class="sel-date-label display">添加事件</div>
+          <div id="formHolderDesktop"></div>
+        </div>
+        <div class="card">
+          <div class="sel-date-label display">近期日程</div>
+          <div id="upcomingListDesktop"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile bottom sheet -->
+  <div class="sheet-overlay" id="sheetOverlay"></div>
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sel-date-label display" id="sheetDateLabel"></div>
+    <div id="eventListMobile"></div>
+    <div class="sel-date-label display" style="margin-top:16px;">添加事件</div>
+    <div id="formHolderMobile"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<!-- InstantDB via esm.sh (serves correct JS MIME type, no MIME-type/CDN download issues) -->
+<script type="module">
+  // ⚠️ 把下面这个 APP_ID 换成你自己在 instantdb.com/dash 里创建的 App ID
+  const APP_ID = 'a5985c99-55b3-45c6-99fe-92fdfe812fe9';
+
+  const { init, id } = await import('https://esm.sh/@instantdb/core');
+  const db = init({ appId: APP_ID });
+
+  const WEEKDAY_NAMES = ['一','二','三','四','五','六','日'];
+  const THEME_STORAGE_KEY = 'calendar-theme';
+
+  let events = {};           // { 'YYYY-MM-DD': [ {id,title,time,allDay,note} ] }
+  let viewYear, viewMonth;
+  let selectedDateStr = null;
+  let sentEmail = '';
+  let currentUser = null;
+  let unsubQuery = null;
+
+  const $ = (sel) => document.querySelector(sel);
+  const app = $('#cal-app');
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function dateKey(y, m, d) { return `${y}-${pad(m + 1)}-${pad(d)}`; }
+  function todayKey() {
+    const t = new Date();
+    return dateKey(t.getFullYear(), t.getMonth(), t.getDate());
+  }
+
+  function showToast(msg) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  // ---------- theme (device-level, plain localStorage — this is a standalone site, not a Claude artifact) ----------
+  function loadTheme() {
+    const theme = localStorage.getItem(THEME_STORAGE_KEY) || 'light';
+    applyTheme(theme);
+  }
+  function applyTheme(theme) {
+    app.setAttribute('data-theme', theme);
+    $('#themeBtn').textContent = theme === 'dark' ? '☀️' : '🌙';
+  }
+  function toggleTheme() {
+    const current = app.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    const next = current === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    localStorage.setItem(THEME_STORAGE_KEY, next);
+  }
+  $('#themeBtn').addEventListener('click', toggleTheme);
+
+  // ---------- auth ----------
+  function showLoginError(msg) {
+    const el = $('#loginError');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+  function clearLoginError() {
+    $('#loginError').classList.add('hidden');
+  }
+
+  $('#sendCodeBtn').addEventListener('click', () => {
+    const email = $('#loginEmailInput').value.trim();
+    if (!email) return;
+    clearLoginError();
+    sentEmail = email;
+    $('#loginTitle').textContent = '输入验证码';
+    $('#loginDesc').textContent = `验证码已发送到 ${email}，请查收邮件`;
+    $('#emailStep').classList.add('hidden');
+    $('#codeStep').classList.remove('hidden');
+    db.auth.sendMagicCode({ email }).catch((err) => {
+      showLoginError('发送失败：' + (err.body?.message || '请检查邮箱地址'));
+      sentEmail = '';
+      $('#loginTitle').textContent = '邮箱登录';
+      $('#loginDesc').textContent = '输入邮箱，我们会发一个验证码过去，用验证码登录即可。';
+      $('#emailStep').classList.remove('hidden');
+      $('#codeStep').classList.add('hidden');
+    });
+  });
+
+  $('#verifyCodeBtn').addEventListener('click', () => {
+    const code = $('#loginCodeInput').value.trim();
+    if (!code) return;
+    clearLoginError();
+    db.auth.signInWithMagicCode({ email: sentEmail, code }).catch((err) => {
+      showLoginError('验证码不对，或者已经过期：' + (err.body?.message || ''));
+      $('#loginCodeInput').value = '';
+    });
+  });
+
+  $('#backToEmailBtn').addEventListener('click', () => {
+    sentEmail = '';
+    clearLoginError();
+    $('#loginTitle').textContent = '邮箱登录';
+    $('#loginDesc').textContent = '输入邮箱，我们会发一个验证码过去，用验证码登录即可。';
+    $('#emailStep').classList.remove('hidden');
+    $('#codeStep').classList.add('hidden');
+    $('#loginCodeInput').value = '';
+  });
+
+  $('#signOutBtn').addEventListener('click', () => {
+    db.auth.signOut();
+  });
+
+  db.subscribeAuth((auth) => {
+    if (auth.user) {
+      currentUser = auth.user;
+      $('#loginScreen').classList.add('hidden');
+      $('#mainApp').classList.remove('hidden');
+      $('#userEmailLabel').textContent = currentUser.email;
+      startApp();
+    } else {
+      currentUser = null;
+      $('#loginScreen').classList.remove('hidden');
+      $('#mainApp').classList.add('hidden');
+      if (unsubQuery) { unsubQuery(); unsubQuery = null; }
+    }
+  });
+
+  // ---------- data (InstantDB realtime) ----------
+  function groupEvents(list) {
+    const grouped = {};
+    (list || []).forEach(ev => {
+      if (!ev.date) return;
+      if (!grouped[ev.date]) grouped[ev.date] = [];
+      grouped[ev.date].push(ev);
+    });
+    return grouped;
+  }
+
+  function subscribeEvents() {
+    unsubQuery = db.subscribeQuery({ events: {} }, (resp) => {
+      if (resp.error) {
+        showToast('读取数据失败：' + resp.error.message);
+        return;
+      }
+      if (resp.data) {
+        events = groupEvents(resp.data.events);
+        renderGrid();
+        renderSidebar();
+        renderUpcoming();
+      }
+    });
+  }
+
+  function createEvent(key, ev) {
+    db.transact(
+      db.tx.events[id()].update({
+        title: ev.title,
+        date: key,
+        time: ev.time,
+        allDay: ev.allDay,
+        note: ev.note,
+        createdAt: Date.now(),
+      })
+    ).catch((err) => showToast('保存失败：' + (err.body?.message || '')));
+  }
+
+  function deleteEvent(evId) {
+    db.transact(db.tx.events[evId].delete())
+      .catch((err) => showToast('删除失败：' + (err.body?.message || '')));
+  }
+
+  // ---------- calendar rendering ----------
+  function renderMonthLabel() {
+    $('#monthLabel').textContent = `${viewYear}年${viewMonth + 1}月`;
+  }
+
+  function renderGrid() {
+    const grid = $('#grid');
+    grid.innerHTML = '';
+    const firstDay = new Date(viewYear, viewMonth, 1);
+    let startOffset = (firstDay.getDay() + 6) % 7;
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+    const tKey = todayKey();
+
+    const cells = [];
+    for (let i = 0; i < startOffset; i++) {
+      const d = daysInPrevMonth - startOffset + i + 1;
+      cells.push({ d, muted: true });
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      cells.push({ d, muted: false });
+    }
+    while (cells.length % 7 !== 0) {
+      cells.push({ d: cells.length - startOffset - daysInMonth + 1, muted: true, next: true });
+    }
+
+    cells.forEach(c => {
+      const cell = document.createElement('button');
+      cell.className = 'cell' + (c.muted ? ' other-month' : '');
+      let key;
+      if (c.muted && !c.next) {
+        const pm = viewMonth === 0 ? 11 : viewMonth - 1;
+        const py = viewMonth === 0 ? viewYear - 1 : viewYear;
+        key = dateKey(py, pm, c.d);
+      } else if (c.muted && c.next) {
+        const nm = viewMonth === 11 ? 0 : viewMonth + 1;
+        const ny = viewMonth === 11 ? viewYear + 1 : viewYear;
+        key = dateKey(ny, nm, c.d);
+      } else {
+        key = dateKey(viewYear, viewMonth, c.d);
+      }
+      if (key === tKey) cell.classList.add('today');
+      if (key === selectedDateStr) cell.classList.add('selected');
+
+      const num = document.createElement('div');
+      num.className = 'daynum';
+      num.textContent = c.d;
+      cell.appendChild(num);
+
+      const dayEvents = events[key] || [];
+      if (dayEvents.length > 0) {
+        const chips = document.createElement('div');
+        chips.className = 'chips';
+        const sorted = dayEvents.slice().sort((a, b) => {
+          const ta = a.allDay ? '00:00' : (a.time || '99:99');
+          const tb = b.allDay ? '00:00' : (b.time || '99:99');
+          return ta.localeCompare(tb);
+        });
+        const maxShow = window.innerWidth <= 760 ? 1 : 2;
+        sorted.slice(0, maxShow).forEach(ev => {
+          const chip = document.createElement('div');
+          chip.className = 'chip';
+          chip.textContent = (ev.allDay ? '' : (ev.time ? ev.time + ' ' : '')) + ev.title;
+          chips.appendChild(chip);
+        });
+        if (sorted.length > maxShow) {
+          const more = document.createElement('div');
+          more.className = 'chip-more';
+          more.textContent = `+${sorted.length - maxShow}`;
+          chips.appendChild(more);
+        }
+        cell.appendChild(chips);
+      }
+
+      cell.addEventListener('click', () => selectDate(key));
+      grid.appendChild(cell);
+    });
+  }
+
+  function formatDateLabel(key) {
+    const [y, m, d] = key.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    const wd = WEEKDAY_NAMES[(dt.getDay() + 6) % 7];
+    return `${m}月${d}日 星期${wd}`;
+  }
+
+  function selectDate(key) {
+    selectedDateStr = key;
+    renderGrid();
+    renderSidebar();
+    if (window.innerWidth <= 760) openSheet();
+  }
+
+  // ---------- event list rendering ----------
+  function eventRowHtml(ev) {
+    const timeLabel = ev.allDay ? '全天' : (ev.time || '');
+    return `
+      <div class="event-item" data-id="${ev.id}">
+        <div class="event-time">${timeLabel}</div>
+        <div class="event-body">
+          <div class="event-title">${escapeHtml(ev.title)}</div>
+          ${ev.note ? `<div class="event-note">${escapeHtml(ev.note)}</div>` : ''}
+        </div>
+        <div class="event-actions">
+          <button class="icon-btn del-btn" data-id="${ev.id}" title="删除">✕</button>
+        </div>
+      </div>`;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function bindDeleteButtons(container) {
+    container.querySelectorAll('.del-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        deleteEvent(btn.dataset.id);
+        showToast('已删除');
+      });
+    });
+  }
+
+  function renderEventListInto(containerId, key) {
+    const el = $(containerId);
+    const list = (events[key] || []).slice().sort((a, b) => {
+      const ta = a.allDay ? '00:00' : (a.time || '99:99');
+      const tb = b.allDay ? '00:00' : (b.time || '99:99');
+      return ta.localeCompare(tb);
+    });
+    if (list.length === 0) {
+      el.innerHTML = `<div class="empty-state">这一天还没有安排</div>`;
+    } else {
+      el.innerHTML = list.map(eventRowHtml).join('');
+    }
+    bindDeleteButtons(el);
+  }
+
+  function buildFormHtml() {
+    return `
+      <div class="form-row">
+        <label>标题</label>
+        <input type="text" class="f-title" placeholder="例如：陪妈妈去医院复诊" maxlength="80" />
+      </div>
+      <div class="form-row form-inline">
+        <div style="flex:1;">
+          <label>时间</label>
+          <input type="time" class="f-time" />
+        </div>
+        <div style="width:110px;">
+          <label>全天</label>
+          <select class="f-allday">
+            <option value="no">否</option>
+            <option value="yes">是</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>备注（选填）</label>
+        <textarea class="f-note" rows="2" placeholder="补充说明"></textarea>
+      </div>
+      <button class="save-btn f-save">保存事件</button>
+    `;
+  }
+
+  function bindForm(container, keyGetter) {
+    container.innerHTML = buildFormHtml();
+    const titleEl = container.querySelector('.f-title');
+    const timeEl = container.querySelector('.f-time');
+    const alldayEl = container.querySelector('.f-allday');
+    const noteEl = container.querySelector('.f-note');
+    const saveBtn = container.querySelector('.f-save');
+
+    alldayEl.addEventListener('change', () => {
+      timeEl.disabled = alldayEl.value === 'yes';
+    });
+
+    saveBtn.addEventListener('click', () => {
+      const title = titleEl.value.trim();
+      if (!title) { showToast('请输入标题'); return; }
+      const key = keyGetter();
+      createEvent(key, {
+        title,
+        allDay: alldayEl.value === 'yes',
+        time: alldayEl.value === 'yes' ? '' : timeEl.value,
+        note: noteEl.value.trim()
+      });
+      titleEl.value = ''; timeEl.value = ''; noteEl.value = ''; alldayEl.value = 'no'; timeEl.disabled = false;
+      showToast('已保存');
+    });
+  }
+
+  function renderUpcomingInto(containerId) {
+    const el = $(containerId);
+    const tKey = todayKey();
+    const rows = [];
+    Object.keys(events).sort().forEach(key => {
+      if (key < tKey) return;
+      (events[key] || []).forEach(ev => rows.push({ key, ev }));
+    });
+    rows.sort((a, b) => {
+      if (a.key !== b.key) return a.key.localeCompare(b.key);
+      const ta = a.ev.allDay ? '00:00' : (a.ev.time || '99:99');
+      const tb = b.ev.allDay ? '00:00' : (b.ev.time || '99:99');
+      return ta.localeCompare(tb);
+    });
+    const top = rows.slice(0, 8);
+    if (top.length === 0) {
+      el.innerHTML = `<div class="empty-state">近期暂无安排</div>`;
+      return;
+    }
+    el.innerHTML = top.map(({ key, ev }) => {
+      const [y, m, d] = key.split('-').map(Number);
+      return `<div class="upcoming-row">
+        <div class="upcoming-date">${m}/${d}</div>
+        <div class="upcoming-title">${escapeHtml(ev.title)}${ev.allDay ? '' : (ev.time ? ' · ' + ev.time : '')}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderUpcoming() {
+    renderUpcomingInto('#upcomingListDesktop');
+    renderUpcomingInto('#upcomingListMobile');
+  }
+
+  function renderSidebar() {
+    const key = selectedDateStr || todayKey();
+    const label = formatDateLabel(key);
+    $('#selDateLabel').textContent = label;
+    $('#sheetDateLabel').textContent = label;
+
+    renderEventListInto('#eventList', key);
+    renderEventListInto('#eventListMobile', key);
+
+    bindForm($('#formHolderDesktop'), () => selectedDateStr || todayKey());
+    bindForm($('#formHolderMobile'), () => selectedDateStr || todayKey());
+  }
+
+  // ---------- mobile sheet ----------
+  function openSheet() {
+    $('#sheetOverlay').classList.add('open');
+    $('#sheet').classList.add('open');
+  }
+  function closeSheet() {
+    $('#sheetOverlay').classList.remove('open');
+    $('#sheet').classList.remove('open');
+  }
+  $('#sheetOverlay').addEventListener('click', closeSheet);
+
+  // ---------- nav ----------
+  $('#prevBtn').addEventListener('click', () => {
+    viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+    renderMonthLabel(); renderGrid();
+  });
+  $('#nextBtn').addEventListener('click', () => {
+    viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+    renderMonthLabel(); renderGrid();
+  });
+  $('#todayBtn').addEventListener('click', () => {
+    const t = new Date();
+    viewYear = t.getFullYear(); viewMonth = t.getMonth();
+    selectedDateStr = todayKey();
+    renderMonthLabel(); renderGrid(); renderSidebar();
+    if (window.innerWidth <= 760) openSheet();
+  });
+
+  window.addEventListener('resize', () => renderGrid());
+
+  // ---------- start (called once user is authenticated) ----------
+  function startApp() {
+    const t = new Date();
+    viewYear = t.getFullYear(); viewMonth = t.getMonth();
+    selectedDateStr = todayKey();
+    renderMonthLabel();
+    renderGrid();
+    renderSidebar();
+    renderUpcoming();
+    subscribeEvents();
+  }
+
+  loadTheme();
+</script>
+</body>
+</html>
