@@ -134,7 +134,7 @@
   #cal-app .weekdays div.weekend { color: var(--seal); }
   #cal-app .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
   #cal-app .cell {
-    position: relative; min-height: 88px; border-radius: 10px; display: flex; flex-direction: column;
+    position: relative; min-height: 94px; border-radius: 10px; display: flex; flex-direction: column;
     align-items: stretch; padding: 6px 4px; gap: 3px; font-size: 13px; color: var(--text);
     background: transparent; transition: background 0.15s; border: 1px solid transparent;
   }
@@ -209,6 +209,29 @@
 
   #cal-app .sync-note { font-size: 11px; color: var(--text-soft); text-align: center; margin-top: 14px; line-height: 1.6; }
 
+  /* Weather card */
+  #cal-app .weather-now { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  #cal-app .weather-now-icon { font-size: 26px; line-height: 1; }
+  #cal-app .weather-now-temp { font-size: 20px; font-weight: 700; }
+  #cal-app .weather-now-desc { font-size: 13px; color: var(--text-soft); }
+  #cal-app .weather-now-city { font-size: 12px; color: var(--text-soft); width: 100%; }
+  #cal-app .weather-set-row { display: flex; gap: 8px; }
+  #cal-app .weather-set-row input { flex: 1; }
+  #cal-app .weather-save-btn { padding: 0 16px; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+  #cal-app .weather-save-btn:active { opacity: 0.85; }
+
+  /* Holiday chip (Japan public holidays) */
+  #cal-app .chip-holiday { background: #C9972B; color: #fff; }
+  #cal-app[data-theme="dark"] .chip-holiday { background: #D9A63E; color: #1a1408; }
+  #cal-app .cell-weather { position: absolute; top: 4px; right: 5px; font-size: 9.5px; color: var(--text-soft); text-align: right; line-height: 1.2; }
+  #cal-app .cell.selected .cell-weather { color: var(--accent-strong); }
+
+  #cal-app .holiday-badge {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px;
+    background: #C9972B; color: #fff; font-size: 12px; font-weight: 600; margin-bottom: 10px;
+  }
+  #cal-app[data-theme="dark"] .holiday-badge { background: #D9A63E; color: #1a1408; }
+
   /* Mobile bottom sheet */
   #cal-app .sheet-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 50; }
   #cal-app .sheet-overlay.open { display: block; }
@@ -239,7 +262,7 @@
     #cal-app .mobile-only { display: block; }
     #cal-app .desktop-only { display: none; }
     #cal-app .brand-title { font-size: 17px; }
-    #cal-app .cell { min-height: 62px; font-size: 12px; padding: 4px 3px; }
+    #cal-app .cell { min-height: 68px; font-size: 12px; padding: 4px 3px; }
     #cal-app .daynum { width: 20px; height: 20px; font-size: 12px; }
     #cal-app .chip { font-size: 9px; padding: 1px 4px; }
     #cal-app .card { padding: 12px; }
@@ -301,6 +324,15 @@
           <div class="grid" id="grid"></div>
         </div>
 
+        <div class="card weather-card" style="margin-top:16px;">
+          <div class="sel-date-label display">天气</div>
+          <div id="weatherNow" class="weather-now"></div>
+          <div class="weather-set-row">
+            <input type="text" id="weatherCityInput" placeholder="输入城市，如：多伦多 / Toronto" />
+            <button class="weather-save-btn" id="weatherSaveBtn">保存</button>
+          </div>
+        </div>
+
         <div class="card mobile-only" style="margin-top:16px;">
           <div class="sel-date-label display">近期日程</div>
           <div id="upcomingListMobile"></div>
@@ -351,6 +383,9 @@
 
   const WEEKDAY_NAMES = ['一','二','三','四','五','六','日'];
   const THEME_STORAGE_KEY = 'calendar-theme';
+  const WEATHER_LOCATION_KEY = 'calendar-weather-location';
+  const WEATHER_CACHE_KEY = 'calendar-weather-cache';
+  const WEATHER_CACHE_MS = 3 * 60 * 60 * 1000; // 3 hours
 
   let events = {};           // { 'YYYY-MM-DD': [ {id,title,time,allDay,note} ] }
   let viewYear, viewMonth;
@@ -359,6 +394,10 @@
   let sentEmail = '';
   let currentUser = null;
   let unsubQuery = null;
+  let holidaysCache = {};    // { year: { 'YYYY-MM-DD': localName } }
+  let weatherLocation = null;    // { name, lat, lon }
+  let weatherByDate = {};        // { 'YYYY-MM-DD': { code, tmax, tmin } }
+  let weatherCurrent = null;     // { code, temp }
 
   const $ = (sel) => document.querySelector(sel);
   const app = $('#cal-app');
@@ -395,6 +434,143 @@
     localStorage.setItem(THEME_STORAGE_KEY, next);
   }
   $('#themeBtn').addEventListener('click', toggleTheme);
+
+  // ---------- Public holidays: Japan (Nager.Date) + China (jiejiariapi), both free/no key ----------
+  async function loadHolidaysForYear(year) {
+    if (holidaysCache[year]) return;
+    holidaysCache[year] = {}; // mark as "loading/loaded" to avoid duplicate fetches
+    const merge = (date, label) => {
+      if (!holidaysCache[year][date]) holidaysCache[year][date] = [];
+      holidaysCache[year][date].push(label);
+    };
+    await Promise.allSettled([
+      fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/JP`)
+        .then(res => res.ok ? res.json() : [])
+        .then(list => { list.forEach(h => merge(h.date, `🇯🇵 ${h.localName || h.name}`)); }),
+      fetch(`https://api.jiejiariapi.com/v1/holidays/${year}`)
+        .then(res => res.ok ? res.json() : {})
+        .then(obj => {
+          Object.values(obj).forEach(h => {
+            if (h.isOffDay) merge(h.date, `🇨🇳 ${h.name}`);
+          });
+        }),
+    ]);
+    renderGrid();
+    renderSidebar();
+  }
+  function holidayNamesFor(key) {
+    const year = Number(key.slice(0, 4));
+    return (holidaysCache[year] || {})[key] || null;
+  }
+
+  // ---------- Weather (Open-Meteo, free, no key) ----------
+  function weatherCodeInfo(code) {
+    const table = {
+      0: ['☀️', '晴'], 1: ['🌤️', '大致晴朗'], 2: ['⛅', '局部多云'], 3: ['☁️', '阴'],
+      45: ['🌫️', '有雾'], 48: ['🌫️', '雾凇'],
+      51: ['🌦️', '毛毛雨'], 53: ['🌦️', '毛毛雨'], 55: ['🌧️', '毛毛雨'],
+      56: ['🌧️', '冻雨'], 57: ['🌧️', '冻雨'],
+      61: ['🌧️', '小雨'], 63: ['🌧️', '中雨'], 65: ['🌧️', '大雨'],
+      66: ['🌧️', '冻雨'], 67: ['🌧️', '冻雨'],
+      71: ['🌨️', '小雪'], 73: ['🌨️', '中雪'], 75: ['❄️', '大雪'], 77: ['🌨️', '米雪'],
+      80: ['🌦️', '阵雨'], 81: ['🌧️', '阵雨'], 82: ['⛈️', '强阵雨'],
+      85: ['🌨️', '阵雪'], 86: ['❄️', '阵雪'],
+      95: ['⛈️', '雷暴'], 96: ['⛈️', '雷暴伴冰雹'], 99: ['⛈️', '雷暴伴冰雹'],
+    };
+    return table[code] || ['🌡️', ''];
+  }
+  function loadWeatherLocation() {
+    try {
+      const raw = localStorage.getItem(WEATHER_LOCATION_KEY);
+      weatherLocation = raw ? JSON.parse(raw) : null;
+    } catch (e) { weatherLocation = null; }
+  }
+  async function geocodeCity(name) {
+    try {
+      const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=zh&format=json`);
+      const data = await res.json();
+      if (!data.results || !data.results.length) return null;
+      const r = data.results[0];
+      return { name: r.name, lat: r.latitude, lon: r.longitude };
+    } catch (e) { return null; }
+  }
+  async function fetchWeather(loc, force) {
+    if (!loc) return;
+    if (!force) {
+      try {
+        const cached = JSON.parse(localStorage.getItem(WEATHER_CACHE_KEY) || 'null');
+        if (cached && cached.lat === loc.lat && cached.lon === loc.lon && (Date.now() - cached.ts) < WEATHER_CACHE_MS) {
+          weatherByDate = cached.byDate;
+          weatherCurrent = cached.current;
+          return;
+        }
+      } catch (e) { /* ignore, refetch */ }
+    }
+    try {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min&current_weather=true&timezone=auto&forecast_days=16`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('weather fetch failed');
+      const data = await res.json();
+      const byDate = {};
+      (data.daily?.time || []).forEach((dateStr, i) => {
+        byDate[dateStr] = {
+          code: data.daily.weathercode[i],
+          tmax: Math.round(data.daily.temperature_2m_max[i]),
+          tmin: Math.round(data.daily.temperature_2m_min[i]),
+        };
+      });
+      const current = data.current_weather ? { code: data.current_weather.weathercode, temp: Math.round(data.current_weather.temperature) } : null;
+      weatherByDate = byDate;
+      weatherCurrent = current;
+      localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({ lat: loc.lat, lon: loc.lon, ts: Date.now(), byDate, current }));
+    } catch (e) {
+      showToast('获取天气失败，请稍后重试');
+    }
+  }
+  function renderWeatherNow() {
+    const el = $('#weatherNow');
+    const cityInput = $('#weatherCityInput');
+    if (!weatherLocation) {
+      el.innerHTML = `<div class="empty-state" style="padding:0;">还没设置城市，在下面输入城市名保存试试</div>`;
+      return;
+    }
+    cityInput.value = weatherLocation.name;
+    if (!weatherCurrent) {
+      el.innerHTML = `<div class="empty-state" style="padding:0;">正在获取天气…</div>`;
+      return;
+    }
+    const [emoji, label] = weatherCodeInfo(weatherCurrent.code);
+    const tKey = todayKey();
+    const todayForecast = weatherByDate[tKey];
+    const rangeLabel = todayForecast ? ` · ${todayForecast.tmin}° ~ ${todayForecast.tmax}°` : '';
+    el.innerHTML = `
+      <span class="weather-now-icon">${emoji}</span>
+      <span class="weather-now-temp">${weatherCurrent.temp}°</span>
+      <span class="weather-now-desc">${label}${rangeLabel}</span>
+      <span class="weather-now-city">📍 ${escapeHtml(weatherLocation.name)}</span>
+    `;
+  }
+  async function initWeather() {
+    loadWeatherLocation();
+    if (weatherLocation) {
+      await fetchWeather(weatherLocation, false);
+    }
+    renderWeatherNow();
+    renderGrid();
+  }
+  $('#weatherSaveBtn').addEventListener('click', async () => {
+    const name = $('#weatherCityInput').value.trim();
+    if (!name) { showToast('请输入城市名'); return; }
+    showToast('正在查找城市…');
+    const loc = await geocodeCity(name);
+    if (!loc) { showToast('没找到这个城市，换个写法试试'); return; }
+    weatherLocation = loc;
+    localStorage.setItem(WEATHER_LOCATION_KEY, JSON.stringify(loc));
+    await fetchWeather(loc, true);
+    renderWeatherNow();
+    renderGrid();
+    showToast('已更新天气');
+  });
 
   // ---------- auth ----------
   function showLoginError(msg) {
@@ -514,6 +690,10 @@
   }
 
   function renderGrid() {
+    loadHolidaysForYear(viewYear);
+    if (viewMonth === 0) loadHolidaysForYear(viewYear - 1);
+    if (viewMonth === 11) loadHolidaysForYear(viewYear + 1);
+
     const grid = $('#grid');
     grid.innerHTML = '';
     const firstDay = new Date(viewYear, viewMonth, 1);
@@ -562,10 +742,26 @@
       num.textContent = c.d;
       cell.appendChild(num);
 
+      const wx = weatherByDate[key];
+      if (wx) {
+        const wxEl = document.createElement('div');
+        wxEl.className = 'cell-weather';
+        const [emoji] = weatherCodeInfo(wx.code);
+        wxEl.textContent = `${emoji}${wx.tmax}°`;
+        cell.appendChild(wxEl);
+      }
+
+      const holidayNames = holidayNamesFor(key);
       const dayEvents = events[key] || [];
-      if (dayEvents.length > 0) {
+      if (dayEvents.length > 0 || holidayNames) {
         const chips = document.createElement('div');
         chips.className = 'chips';
+        if (holidayNames) {
+          const hChip = document.createElement('div');
+          hChip.className = 'chip chip-holiday';
+          hChip.textContent = holidayNames.join(' · ');
+          chips.appendChild(hChip);
+        }
         const sorted = dayEvents.slice().sort((a, b) => {
           const ta = a.allDay ? '00:00' : (a.time || '99:99');
           const tb = b.allDay ? '00:00' : (b.time || '99:99');
@@ -643,10 +839,14 @@
       const tb = b.allDay ? '00:00' : (b.time || '99:99');
       return ta.localeCompare(tb);
     });
+    const holidayNames = holidayNamesFor(key);
+    const holidayHtml = holidayNames
+      ? holidayNames.map(n => `<div class="holiday-badge">${escapeHtml(n)}</div>`).join('')
+      : '';
     if (list.length === 0) {
-      el.innerHTML = `<div class="empty-state">这一天还没有安排</div>`;
+      el.innerHTML = holidayHtml + `<div class="empty-state">这一天还没有安排</div>`;
     } else {
-      el.innerHTML = list.map(eventRowHtml).join('');
+      el.innerHTML = holidayHtml + list.map(eventRowHtml).join('');
     }
     bindDeleteButtons(el);
   }
@@ -812,6 +1012,7 @@
     renderSidebar();
     renderUpcoming();
     subscribeEvents();
+    initWeather();
   }
 
   loadTheme();
