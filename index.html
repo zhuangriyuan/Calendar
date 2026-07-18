@@ -198,6 +198,15 @@
   #cal-app .upcoming-body { flex: 1; min-width: 0; }
   #cal-app .upcoming-title { font-size: 13px; word-break: break-word; }
 
+  #cal-app .pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 10px; }
+  #cal-app .pager-btn {
+    width: 28px; height: 28px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--text);
+  }
+  #cal-app .pager-btn:disabled { opacity: 0.35; cursor: default; }
+  #cal-app .pager-btn:not(:disabled):active { background: var(--accent-soft); }
+  #cal-app .pager-label { font-size: 12px; color: var(--text-soft); min-width: 40px; text-align: center; }
+
   #cal-app .sync-note { font-size: 11px; color: var(--text-soft); text-align: center; margin-top: 14px; line-height: 1.6; }
 
   /* Mobile bottom sheet */
@@ -684,6 +693,9 @@
     });
   }
 
+  const UPCOMING_PAGE_SIZE = 5;
+  const upcomingPage = { '#upcomingListDesktop': 0, '#upcomingListMobile': 0 };
+
   function renderUpcomingInto(containerId) {
     const el = $(containerId);
     const tKey = todayKey();
@@ -698,12 +710,18 @@
       const tb = b.ev.allDay ? '00:00' : (b.ev.time || '99:99');
       return ta.localeCompare(tb);
     });
-    const top = rows.slice(0, 8);
-    if (top.length === 0) {
+    if (rows.length === 0) {
       el.innerHTML = `<div class="empty-state">近期暂无安排</div>`;
+      upcomingPage[containerId] = 0;
       return;
     }
-    el.innerHTML = top.map(({ key, ev }) => {
+    const totalPages = Math.max(1, Math.ceil(rows.length / UPCOMING_PAGE_SIZE));
+    if (upcomingPage[containerId] >= totalPages) upcomingPage[containerId] = totalPages - 1;
+    if (upcomingPage[containerId] < 0) upcomingPage[containerId] = 0;
+    const page = upcomingPage[containerId];
+    const pageRows = rows.slice(page * UPCOMING_PAGE_SIZE, (page + 1) * UPCOMING_PAGE_SIZE);
+
+    const rowsHtml = pageRows.map(({ key, ev }) => {
       const [y, m, d] = key.split('-').map(Number);
       return `<div class="upcoming-row">
         <div class="upcoming-date">${m}/${d}</div>
@@ -713,7 +731,27 @@
         <button class="icon-btn del-btn" data-id="${ev.id}" title="删除">✕</button>
       </div>`;
     }).join('');
+
+    const pagerHtml = totalPages > 1 ? `
+      <div class="pager">
+        <button class="pager-btn pager-prev" ${page === 0 ? 'disabled' : ''}>‹</button>
+        <div class="pager-label">${page + 1} / ${totalPages}</div>
+        <button class="pager-btn pager-next" ${page === totalPages - 1 ? 'disabled' : ''}>›</button>
+      </div>` : '';
+
+    el.innerHTML = rowsHtml + pagerHtml;
     bindDeleteButtons(el);
+
+    const prevBtn = el.querySelector('.pager-prev');
+    const nextBtn = el.querySelector('.pager-next');
+    if (prevBtn) prevBtn.addEventListener('click', () => {
+      upcomingPage[containerId] = Math.max(0, upcomingPage[containerId] - 1);
+      renderUpcomingInto(containerId);
+    });
+    if (nextBtn) nextBtn.addEventListener('click', () => {
+      upcomingPage[containerId] = Math.min(totalPages - 1, upcomingPage[containerId] + 1);
+      renderUpcomingInto(containerId);
+    });
   }
 
   function renderUpcoming() {
