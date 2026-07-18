@@ -435,7 +435,7 @@
   }
   $('#themeBtn').addEventListener('click', toggleTheme);
 
-  // ---------- Public holidays: Japan (Nager.Date) + China (jiejiariapi), both free/no key ----------
+  // ---------- Public holidays: Japan (Nager.Date) + China (NateScarlet/holiday-cn via jsDelivr), both free/no key ----------
   async function loadHolidaysForYear(year) {
     if (holidaysCache[year]) return;
     holidaysCache[year] = {}; // mark as "loading/loaded" to avoid duplicate fetches
@@ -447,10 +447,10 @@
       fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/JP`)
         .then(res => res.ok ? res.json() : [])
         .then(list => { list.forEach(h => merge(h.date, `🇯🇵 ${h.localName || h.name}`)); }),
-      fetch(`https://api.jiejiariapi.com/v1/holidays/${year}`)
-        .then(res => res.ok ? res.json() : {})
+      fetch(`https://cdn.jsdelivr.net/gh/NateScarlet/holiday-cn@master/${year}.json`)
+        .then(res => res.ok ? res.json() : { days: [] })
         .then(obj => {
-          Object.values(obj).forEach(h => {
+          (obj.days || []).forEach(h => {
             if (h.isOffDay) merge(h.date, `🇨🇳 ${h.name}`);
           });
         }),
