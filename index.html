@@ -331,8 +331,8 @@
       <div class="cal-col">
         <div class="card">
           <div class="weekdays">
-            <div>一</div><div>二</div><div>三</div><div>四</div><div>五</div>
-            <div class="weekend">六</div><div class="weekend">日</div>
+            <div class="weekend">日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div>
+            <div class="weekend">六</div>
           </div>
           <div class="grid" id="grid"></div>
         </div>
@@ -710,7 +710,7 @@
     const grid = $('#grid');
     grid.innerHTML = '';
     const firstDay = new Date(viewYear, viewMonth, 1);
-    let startOffset = (firstDay.getDay() + 6) % 7;
+    let startOffset = firstDay.getDay(); // 0 = Sunday, matches Sunday-first grid
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
     const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
     const tKey = todayKey();
